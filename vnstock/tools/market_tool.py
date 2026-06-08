@@ -8,7 +8,7 @@ _site_pkg = Path(__file__).resolve().parents[2] / ".venv" / "lib" / f"python{sys
 if _site_pkg.is_dir() and str(_site_pkg) not in sys.path:
     sys.path.insert(0, str(_site_pkg))
 
-from vnstock.database.repo import DataRepository  # noqa: E402
+from data.storage.repo import DataRepository  # noqa: E402
 from vnstock.jobs.crawler import MarketCrawler  # noqa: E402
 
 # Optional import to trigger vnstock availability early (without hard fail)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Dict, List, Tuple
 
 from config import risk_limits as default_risk_limits
-from vnstock.database.repo import DataRepository
+from data.storage.repo import DataRepository
 from vnstock.tools.backtest.portfolio import Portfolio
 
 # Re-export RiskLimits from config for backward compatibility

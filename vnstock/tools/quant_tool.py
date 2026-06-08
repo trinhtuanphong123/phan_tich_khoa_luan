@@ -10,8 +10,8 @@ from typing import Dict
 import pandas as pd
 import pandas_ta as ta
 
-from vnstock.database.models import FinancialRatio
-from vnstock.database.repo import DataRepository
+from data.storage.models import FinancialRatio
+from data.storage.repo import DataRepository
 
 
 @dataclass

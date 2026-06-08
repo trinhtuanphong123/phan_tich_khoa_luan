@@ -20,8 +20,8 @@ from typing import List, Tuple
 import pandas as pd
 
 from config import paths
-from tracking_news.app import summarizer as tsummarizer
-from vnstock.database.repo import DataRepository
+from data.tracking_news.app import summarizer as tsummarizer
+from data.storage.repo import DataRepository
 
 NEWS_DB_PATH = paths.news_db_path
 

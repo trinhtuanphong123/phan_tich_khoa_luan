@@ -134,7 +134,7 @@ class SearchToolkit:
 
         try:
             # Lazy import to keep vnstock independent
-            from tracking_news.app.summarizer import summarize_for_agent
+            from data.tracking_news.app.summarizer import summarize_for_agent
 
             return await summarize_for_agent(articles, agent_type=agent_type, ticker=ticker)
         except Exception as exc:  # noqa: BLE001

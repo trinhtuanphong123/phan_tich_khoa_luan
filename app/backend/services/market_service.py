@@ -103,7 +103,7 @@ def get_latest_prices(tickers: List[str]) -> Dict[str, float]:
 
     if missing:
         try:
-            from vnstock.database.repo import DataRepository
+            from data.storage.repo import DataRepository
 
             repo = DataRepository()
             try:
@@ -165,7 +165,7 @@ def sync_prices_today(tickers: List[str], *, force: bool = False) -> Dict[str, A
     error: Optional[str] = None
     t0 = time.time()
     try:
-        from vnstock.database.models import init_db
+        from data.storage.models import init_db
         from vnstock.jobs.crawler import MarketCrawler
 
         init_db()

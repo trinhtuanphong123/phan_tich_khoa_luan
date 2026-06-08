@@ -9,8 +9,8 @@ from typing import Any, Dict, List
 import pandas as pd
 import requests
 
-from vnstock.database.models import init_db
-from vnstock.database.repo import DataRepository
+from data.storage.models import init_db
+from data.storage.repo import DataRepository
 
 class MarketCrawler:
     """
@@ -144,7 +144,7 @@ class MarketCrawler:
         try:
             resolved_end_date = end_date or datetime.now().strftime("%Y-%m-%d")
 
-            from vnstock.database.models import MarketDataDaily
+            from data.storage.models import MarketDataDaily
 
             if start_date is not None:
                 resolved_start_date = start_date
@@ -488,7 +488,7 @@ class MarketCrawler:
     ) -> pd.DataFrame:
         try:
             resolved_end_date = end_date or datetime.now().strftime("%Y-%m-%d")
-            from vnstock.database.models import MarketDataDaily
+            from data.storage.models import MarketDataDaily
 
             if start_date is not None:
                 resolved_start_date = start_date
@@ -554,7 +554,7 @@ class MarketCrawler:
                 else:
                     print(f"✅ Đã thêm {count} bản ghi.")
             else:
-                from vnstock.database.models import MarketDataDaily
+                from data.storage.models import MarketDataDaily
                 last_record = self.repo.db.query(MarketDataDaily).filter(MarketDataDaily.ticker == ticker).order_by(MarketDataDaily.date.desc()).first()
                 if last_record and last_record.date.strftime('%Y-%m-%d') >= (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d'):
                     print(f"✅ Dữ liệu đã cập nhật tới lịch sử gần nhất ({last_record.date.strftime('%Y-%m-%d')}).")

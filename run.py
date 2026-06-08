@@ -44,10 +44,10 @@ try:
     )
     from vnstock.agents.financial_agent import normalize_financial_quarter
     from vnstock.core import llm as llm_core
-    from vnstock.database.models import init_db
+    from data.storage.models import init_db
     from vnstock.jobs.crawler import MarketCrawler
-    from vnstock.libs.rag_engine.ingest import run_ingest
-    from vnstock.libs.rag_engine.retrieval import query_func
+    from vnstock.rag_engine.ingest import run_ingest
+    from vnstock.rag_engine.retrieval import query_func
     from vnstock.tools.backtest.engine import VN30_TICKERS, run_portfolio_backtest, select_workflows
 except ImportError as exc:  # pragma: no cover - startup guard
     hint = f"PYTHONPATH={ROOT}:{ROOT / 'vnstock'}:{ROOT / 'cognitive_trading'}"
@@ -97,7 +97,7 @@ def _latest_news_date(db_path: Path) -> date | None:
 
 
 def _has_market_data_for_range(ticker: str, start: date, end: date) -> bool:
-    from vnstock.database.repo import DataRepository
+    from data.storage.repo import DataRepository
 
     repo = DataRepository()
     try:
@@ -340,7 +340,7 @@ def handle_crawl_news(args: argparse.Namespace) -> None:
         incremental=False,
     )
     print(f"Bắt đầu crawl tin tức từ {date_from} đến {date_to} (Nguồn: {source})...")
-    from tracking_news.app.ingest.run_once import main as crawl_main
+    from data.tracking_news.app.ingest.run_once import main as crawl_main
 
     crawl_main()
 
@@ -367,7 +367,7 @@ async def handle_sync(args: argparse.Namespace) -> None:
         source="cafef",
         incremental=True,
     )
-    from tracking_news.app.ingest.run_once import main as crawl_main
+    from data.tracking_news.app.ingest.run_once import main as crawl_main
 
     await asyncio.to_thread(crawl_main)
     print(f"News sync complete: {date_from} -> {date_to} into {paths.news_db_path}")
@@ -387,7 +387,7 @@ async def handle_sync(args: argparse.Namespace) -> None:
 
 async def _close_tracking_news_session() -> None:
     try:
-        from tracking_news.app.summarizer import close_session as news_close_session
+        from data.tracking_news.app.summarizer import close_session as news_close_session
     except Exception:
         return
 
