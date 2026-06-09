@@ -28,6 +28,10 @@ def _to_trade_date(value: date | datetime | str | pd.Timestamp) -> date:
     return _to_vn_timestamp(value).date()
 
 
+def _normalize_symbol(symbol: str) -> str:
+    return symbol.strip().upper()
+
+
 def _normalize_market_rows(
     rows: pd.DataFrame | list[dict[str, object]],
     *,
@@ -92,15 +96,15 @@ def upsert_ohlcv_5m(rows: pd.DataFrame | list[dict[str, object]]) -> int:
             existing = (
                 session.query(MarketOHLCV5m)
                 .filter(
-                    MarketOHLCV5m.ticker == row["symbol"],
-                    MarketOHLCV5m.timestamp == row["ts"].to_pydatetime(),
+                    MarketOHLCV5m.symbol == row["symbol"],
+                    MarketOHLCV5m.ts == row["ts"].to_pydatetime(),
                     MarketOHLCV5m.source == str(row["source"]),
                 )
                 .first()
             )
             payload = {
-                "ticker": row["symbol"],
-                "timestamp": row["ts"].to_pydatetime(),
+                "symbol": row["symbol"],
+                "ts": row["ts"].to_pydatetime(),
                 "trade_date": row["trade_date"],
                 "open": None if pd.isna(row["open"]) else float(row["open"]),
                 "high": None if pd.isna(row["high"]) else float(row["high"]),
@@ -138,15 +142,15 @@ def upsert_ohlcv_1d(rows: pd.DataFrame | list[dict[str, object]]) -> int:
             existing = (
                 session.query(MarketOHLCV1d)
                 .filter(
-                    MarketOHLCV1d.ticker == row["symbol"],
+                    MarketOHLCV1d.symbol == row["symbol"],
                     MarketOHLCV1d.trade_date == row["trade_date"],
                     MarketOHLCV1d.source == str(row["source"]),
                 )
                 .first()
             )
             payload = {
-                "ticker": row["symbol"],
-                "date": row["ts"].to_pydatetime(),
+                "symbol": row["symbol"],
+                "ts": row["ts"].to_pydatetime(),
                 "trade_date": row["trade_date"],
                 "open": None if pd.isna(row["open"]) else float(row["open"]),
                 "high": None if pd.isna(row["high"]) else float(row["high"]),
@@ -185,13 +189,13 @@ def get_ohlcv_5m(symbols: list[str] | tuple[str, ...] | set[str], start_ts: date
     session = SessionLocal()
     try:
         rows = (
-            session.query(MarketOHLCV5m)
-            .filter(
-                MarketOHLCV5m.ticker.in_(normalized_symbols),
-                MarketOHLCV5m.timestamp >= start_value,
-                MarketOHLCV5m.timestamp <= end_value,
+                session.query(MarketOHLCV5m)
+                .filter(
+                MarketOHLCV5m.symbol.in_(normalized_symbols),
+                MarketOHLCV5m.ts >= start_value,
+                MarketOHLCV5m.ts <= end_value,
             )
-            .order_by(MarketOHLCV5m.ticker.asc(), MarketOHLCV5m.timestamp.asc())
+            .order_by(MarketOHLCV5m.symbol.asc(), MarketOHLCV5m.ts.asc())
             .all()
         )
     finally:
@@ -200,8 +204,8 @@ def get_ohlcv_5m(symbols: list[str] | tuple[str, ...] | set[str], start_ts: date
     return pd.DataFrame(
         [
             {
-                "symbol": row.ticker,
-                "ts": _to_vn_timestamp(row.timestamp),
+                "symbol": row.symbol,
+                "ts": _to_vn_timestamp(row.ts),
                 "trade_date": row.trade_date,
                 "open": row.open,
                 "high": row.high,
@@ -228,13 +232,13 @@ def get_ohlcv_1d(symbols: list[str] | tuple[str, ...] | set[str], start_date: da
     session = SessionLocal()
     try:
         rows = (
-            session.query(MarketOHLCV1d)
-            .filter(
-                MarketOHLCV1d.ticker.in_(normalized_symbols),
+                session.query(MarketOHLCV1d)
+                .filter(
+                MarketOHLCV1d.symbol.in_(normalized_symbols),
                 MarketOHLCV1d.trade_date >= start_value,
                 MarketOHLCV1d.trade_date <= end_value,
             )
-            .order_by(MarketOHLCV1d.ticker.asc(), MarketOHLCV1d.trade_date.asc())
+            .order_by(MarketOHLCV1d.symbol.asc(), MarketOHLCV1d.trade_date.asc())
             .all()
         )
     finally:
@@ -243,8 +247,8 @@ def get_ohlcv_1d(symbols: list[str] | tuple[str, ...] | set[str], start_date: da
     return pd.DataFrame(
         [
             {
-                "symbol": row.ticker,
-                "ts": _to_vn_timestamp(row.date),
+                "symbol": row.symbol,
+                "ts": _to_vn_timestamp(row.ts),
                 "trade_date": row.trade_date,
                 "open": row.open,
                 "high": row.high,
@@ -263,21 +267,21 @@ def get_ohlcv_1d(symbols: list[str] | tuple[str, ...] | set[str], start_date: da
 
 
 def get_latest_timestamp(symbol: str, interval: str) -> pd.Timestamp | None:
-    normalized_symbol = symbol.strip().upper()
+    normalized_symbol = _normalize_symbol(symbol)
     session = SessionLocal()
     try:
         if interval == "1d":
             row = (
-                session.query(MarketOHLCV1d.date)
-                .filter(MarketOHLCV1d.ticker == normalized_symbol)
-                .order_by(MarketOHLCV1d.date.desc())
+                session.query(MarketOHLCV1d.ts)
+                .filter(MarketOHLCV1d.symbol == normalized_symbol)
+                .order_by(MarketOHLCV1d.ts.desc())
                 .first()
             )
         else:
             row = (
-                session.query(MarketOHLCV5m.timestamp)
-                .filter(MarketOHLCV5m.ticker == normalized_symbol)
-                .order_by(MarketOHLCV5m.timestamp.desc())
+                session.query(MarketOHLCV5m.ts)
+                .filter(MarketOHLCV5m.symbol == normalized_symbol)
+                .order_by(MarketOHLCV5m.ts.desc())
                 .first()
             )
     finally:
@@ -311,3 +315,44 @@ def get_daily_ohlcv(symbols: list[str] | tuple[str, ...] | set[str], start_date:
 
 def get_latest_bar_time(symbol: str, interval: str) -> pd.Timestamp | None:
     return get_latest_timestamp(symbol, interval)
+
+
+def get_existing_trade_dates(symbol: str, start_date: date | datetime | str, end_date: date | datetime | str) -> set[date]:
+    normalized_symbol = _normalize_symbol(symbol)
+    start_value = _to_trade_date(start_date)
+    end_value = _to_trade_date(end_date)
+
+    session = SessionLocal()
+    try:
+        rows = (
+            session.query(MarketOHLCV1d.trade_date)
+            .filter(
+                MarketOHLCV1d.symbol == normalized_symbol,
+                MarketOHLCV1d.trade_date >= start_value,
+                MarketOHLCV1d.trade_date <= end_value,
+            )
+            .all()
+        )
+    finally:
+        session.close()
+
+    return {row[0] for row in rows}
+
+
+def delete_ohlcv_1d(symbol: str) -> int:
+    normalized_symbol = _normalize_symbol(symbol)
+
+    session = SessionLocal()
+    try:
+        deleted_count = (
+            session.query(MarketOHLCV1d)
+            .filter(MarketOHLCV1d.symbol == normalized_symbol)
+            .delete(synchronize_session=False)
+        )
+        session.commit()
+        return int(deleted_count)
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()

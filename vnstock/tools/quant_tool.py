@@ -10,8 +10,10 @@ from typing import Dict
 import pandas as pd
 import pandas_ta as ta
 
+from data.storage import market_repo
 from data.storage.models import FinancialRatio
-from data.storage.repo import DataRepository
+from data.storage.ratio_repo import RatioRepository
+from data.storage.sentiment_repo import SentimentRepository
 
 
 @dataclass
@@ -51,10 +53,12 @@ class AlphaResult:
 
 class QuantToolkit:
     def __init__(self) -> None:
-        self.repo = DataRepository()
+        self.ratio_repo = RatioRepository()
+        self.sentiment_repo = SentimentRepository()
 
     def close(self) -> None:
-        self.repo.close()
+        self.ratio_repo.close()
+        self.sentiment_repo.close()
 
     @staticmethod
     def _ema(series: pd.Series, span: int) -> float:
@@ -111,7 +115,7 @@ class QuantToolkit:
         ticker: str,
         ref_date: datetime,
     ) -> tuple[FinancialRatio | None, AlphaComponents]:
-        ratio = self.repo.get_latest_ratio(ticker, ref_date)
+        ratio = self.ratio_repo.get_latest_ratio(ticker, ref_date)
         components = AlphaComponents(
             pe=self._safe_ratio_attr(ratio, "pe"),
             pb=self._safe_ratio_attr(ratio, "pb"),
@@ -132,12 +136,13 @@ class QuantToolkit:
         ticker: str,
         ref_date: datetime,
     ) -> tuple[AlphaComponents, float]:
-        df = df.sort_values("date") if not df.empty else df
+        timestamp_column = "ts" if "ts" in df.columns else "date"
+        df = df.sort_values(timestamp_column) if not df.empty else df
         if not df.empty:
-            df = df[df["date"] <= ref_date]
+            df = df[df[timestamp_column] <= ref_date]
 
         _ratio, components = self._ratio_components(ticker, ref_date)
-        senti_score, senti_conf, _ = self.repo.get_decayed_sentiment(
+        senti_score, senti_conf, _ = self.sentiment_repo.get_decayed_sentiment(
             ticker, ref_date, days_back=30
         )
         components.sentiment_score = senti_score
@@ -186,7 +191,8 @@ class QuantToolkit:
 
     def calculate_alpha_score(self, ticker: str, ref_date: str) -> AlphaResult:
         ref_dt = pd.to_datetime(ref_date).to_pydatetime()
-        df = self.repo.get_price_history(ticker, days=120, end_date=ref_dt)
+        start_date = (ref_dt.date() - pd.Timedelta(days=119)).isoformat()
+        df = market_repo.get_daily_ohlcv([ticker], start_date, ref_dt.date().isoformat())
         components, macd_hist = self._compute_components(df, ticker, ref_dt)
 
         momentum = 0.0

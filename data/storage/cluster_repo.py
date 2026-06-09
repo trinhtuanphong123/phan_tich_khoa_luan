@@ -134,14 +134,14 @@ def get_cluster_runs() -> pd.DataFrame:
     )
 
 
-def get_stock_cluster_history(ticker: str) -> pd.DataFrame:
-    normalized_ticker = ticker.strip().upper()
+def get_stock_cluster_history(symbol: str) -> pd.DataFrame:
+    normalized_symbol = symbol.strip().upper()
     session = SessionLocal()
     try:
         rows = (
             session.query(StockCluster, ClusterRun)
             .join(ClusterRun, StockCluster.cluster_run_id == ClusterRun.id)
-            .filter(StockCluster.symbol == normalized_ticker)
+            .filter(StockCluster.symbol == normalized_symbol)
             .order_by(ClusterRun.started_at.asc())
             .all()
         )

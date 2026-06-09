@@ -97,18 +97,14 @@ def _latest_news_date(db_path: Path) -> date | None:
 
 
 def _has_market_data_for_range(ticker: str, start: date, end: date) -> bool:
-    from data.storage.repo import DataRepository
+    from data.storage import market_repo
 
-    repo = DataRepository()
-    try:
-        df = repo.get_price_history(
-            ticker,
-            start_date=start.isoformat(),
-            end_date=end.isoformat(),
-        )
-        return not df.empty
-    finally:
-        repo.close()
+    df = market_repo.get_daily_ohlcv(
+        [ticker],
+        start.isoformat(),
+        end.isoformat(),
+    )
+    return not df.empty
 
 
 def _ensure_backtest_market_data(tickers: list[str], start: date, end: date) -> None:

@@ -48,7 +48,7 @@ Base = declarative_base()
 class Ticker(Base):
     __tablename__ = "tickers"
 
-    ticker = Column("symbol", String(16), primary_key=True)
+    symbol = Column("symbol", String(16), primary_key=True)
     exchange = Column(String(16))
     sector = Column(String(128))
     priority = Column(Integer, default=3, nullable=False)
@@ -61,15 +61,15 @@ class Ticker(Base):
     charter_capital = Column(BigInteger)
     outstanding_shares = Column(BigInteger)
 
-    symbol = synonym("ticker")
+    ticker = synonym("symbol")
 
 
 class MarketOHLCV5m(Base):
     __tablename__ = "market_ohlcv_5m"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    ticker = Column("symbol", String(16), ForeignKey("tickers.symbol"), nullable=False, index=True)
-    timestamp = Column("ts", DateTime(timezone=True), nullable=False, index=True)
+    symbol = Column("symbol", String(16), ForeignKey("tickers.symbol"), nullable=False, index=True)
+    ts = Column("ts", DateTime(timezone=True), nullable=False, index=True)
     trade_date = Column(Date, nullable=False, index=True)
     open = Column(Float)
     high = Column(Float)
@@ -84,8 +84,8 @@ class MarketOHLCV5m(Base):
         UniqueConstraint("symbol", "ts", "source", name="uq_market_ohlcv_5m_symbol_ts_source"),
     )
 
-    symbol = synonym("ticker")
-    ts = synonym("timestamp")
+    ticker = synonym("symbol")
+    timestamp = synonym("ts")
     price = synonym("close")
 
 
@@ -93,8 +93,8 @@ class MarketOHLCV1d(Base):
     __tablename__ = "market_ohlcv_1d"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    ticker = Column("symbol", String(16), ForeignKey("tickers.symbol"), nullable=False, index=True)
-    date = Column("ts", DateTime(timezone=True), nullable=False, index=True)
+    symbol = Column("symbol", String(16), ForeignKey("tickers.symbol"), nullable=False, index=True)
+    ts = Column("ts", DateTime(timezone=True), nullable=False, index=True)
     trade_date = Column(Date, nullable=False, index=True)
     open = Column(Float)
     high = Column(Float)
@@ -111,8 +111,8 @@ class MarketOHLCV1d(Base):
         UniqueConstraint("symbol", "trade_date", "source", name="uq_market_ohlcv_1d_symbol_trade_date_source"),
     )
 
-    symbol = synonym("ticker")
-    ts = synonym("date")
+    ticker = synonym("symbol")
+    date = synonym("ts")
 
 
 class IngestionRun(Base):
@@ -187,6 +187,33 @@ class FeatureRun(Base):
     metadata_json = Column(JSON)
 
 
+class StockIndicator(Base):
+    __tablename__ = "stock_indicators"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    symbol = Column("ticker", String(16), ForeignKey("tickers.symbol"), nullable=False, index=True)
+    trade_date = Column(Date, nullable=False, index=True)
+
+    ema_20 = Column(Float)
+    ema_50 = Column(Float)
+    rsi_14 = Column(Float)
+    macd_line = Column(Float)
+    macd_signal = Column(Float)
+    macd_hist = Column(Float)
+    bb_upper = Column(Float)
+    bb_lower = Column(Float)
+    bb_mid = Column(Float)
+    atr_14 = Column(Float)
+    volume_sma_20 = Column(Float)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("ticker", "trade_date", name="uq_stock_indicators_ticker_date"),
+    )
+
+    ticker = synonym("symbol")
+
+
 class ClusterRun(Base):
     __tablename__ = "cluster_runs"
 
@@ -219,7 +246,7 @@ class FinancialRatio(Base):
     __tablename__ = "financial_ratios"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    ticker = Column(String(10), index=True, nullable=False)
+    symbol = Column("ticker", String(10), index=True, nullable=False)
     quarter = Column(String(10), index=True, nullable=False)
     trailing_eps = Column(Float)
     book_value_per_share = Column(Float)
@@ -239,17 +266,21 @@ class FinancialRatio(Base):
         UniqueConstraint("ticker", "quarter", name="uq_financial_ratios_ticker_quarter"),
     )
 
+    ticker = synonym("symbol")
+
 
 class AgentLog(Base):
     __tablename__ = "agent_logs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     timestamp = Column(DateTime(timezone=True), default=datetime.utcnow)
-    ticker = Column(String(10), index=True)
+    symbol = Column("ticker", String(10), index=True)
     action = Column(String(50))
     confidence = Column(String(50))
     reason = Column(Text)
     full_report_path = Column(String(255))
+
+    ticker = synonym("symbol")
 
 
 class DailySentiment(Base):
@@ -257,7 +288,7 @@ class DailySentiment(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     date = Column(DateTime(timezone=True), index=True, nullable=False)
-    ticker = Column(String(10), index=True, nullable=False)
+    symbol = Column("ticker", String(10), index=True, nullable=False)
     daily_score = Column(Float)
     confidence = Column(Float)
     impact_summary = Column(Text)
@@ -266,13 +297,15 @@ class DailySentiment(Base):
         UniqueConstraint("date", "ticker", name="uq_daily_sentiment"),
     )
 
+    ticker = synonym("symbol")
+
 
 class BacktestMetric(Base):
     __tablename__ = "backtest_metrics"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     workflow_name = Column(String(50), nullable=False)
-    ticker = Column(String(10), nullable=False)
+    symbol = Column("ticker", String(10), nullable=False)
     start_date = Column(DateTime(timezone=True), nullable=False)
     end_date = Column(DateTime(timezone=True), nullable=False)
     account_value = Column(Float)
@@ -281,6 +314,8 @@ class BacktestMetric(Base):
     win_rate = Column(Float)
     sharpe = Column(Float)
     trades = Column(Integer)
+
+    ticker = synonym("symbol")
 
 
 # Compatibility aliases for existing code paths.

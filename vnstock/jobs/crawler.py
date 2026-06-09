@@ -9,13 +9,15 @@ from typing import Any, Dict, List
 import pandas as pd
 import requests
 
+from data.storage import market_repo
 from data.storage.models import init_db
-from data.storage.repo import DataRepository
+from data.storage.ratio_repo import RatioRepository
+from data.storage.symbol_repo import SymbolRepository
 
 class MarketCrawler:
     """
     Class chịu trách nhiệm tải dữ liệu thị trường (OHLCV + Foreign Flow)
-    và lưu vào Database thông qua DataRepository.
+    và lưu vào Database thông qua market_repo.
     """
     
     def __init__(self):
@@ -26,7 +28,8 @@ class MarketCrawler:
             "TCB", "TPB", "VCB", "VHM", "VIB", "VIC", "VJC", "VNM", "VPB", "VRE",
         ]
         self.benchmark_symbols = ["VN30", "VNINDEX"]
-        self.repo = DataRepository()
+        self.ratio_repo = RatioRepository()
+        self.symbol_repo = SymbolRepository()
 
     @staticmethod
     def _sleep_for_rpm(max_requests_per_minute: int) -> None:
@@ -134,31 +137,25 @@ class MarketCrawler:
 
     def _fetch_from_api(
         self,
-        ticker: str,
+        symbol: str,
         *,
         start_date: str | None = None,
         end_date: str | None = None,
         full_history: bool = False,
     ) -> pd.DataFrame:
         """Gọi API Vnstock lấy dữ liệu + foreign flow cho window yêu cầu hoặc toàn bộ lịch sử."""
+        ticker = symbol
         try:
             resolved_end_date = end_date or datetime.now().strftime("%Y-%m-%d")
-
-            from data.storage.models import MarketDataDaily
 
             if start_date is not None:
                 resolved_start_date = start_date
             elif full_history:
                 resolved_start_date = (datetime.now() - timedelta(days=3652)).strftime("%Y-%m-%d")
             else:
-                last_record = (
-                    self.repo.db.query(MarketDataDaily)
-                    .filter(MarketDataDaily.ticker == ticker)
-                    .order_by(MarketDataDaily.date.desc())
-                    .first()
-                )
-                if last_record and last_record.date:
-                    resolved_start_date = (last_record.date + timedelta(days=1)).strftime("%Y-%m-%d")
+                last_bar_time = market_repo.get_latest_bar_time(ticker, "1d")
+                if last_bar_time is not None:
+                    resolved_start_date = (last_bar_time.date() + timedelta(days=1)).strftime("%Y-%m-%d")
                 else:
                     resolved_start_date = (datetime.now() - timedelta(days=3652)).strftime("%Y-%m-%d")
 
@@ -221,6 +218,7 @@ class MarketCrawler:
         with_foreign_flow: bool,
     ) -> pd.DataFrame:
         try:
+            symbol = ticker
             script_lines = self._base_external_vnstock_script(
                 ticker=ticker,
                 start_date=start_date,
@@ -304,16 +302,16 @@ class MarketCrawler:
     ) -> dict[str, Any]:
         previous_rows = previous_rows or {}
         quarter_key = quarter.lower()
-        current_revenue = self.repo._to_ratio_value(rows.get("net_revenue", {}).get(quarter_key))
-        previous_revenue = self.repo._to_ratio_value(previous_rows.get("net_revenue", {}).get(quarter_key))
-        current_profit = self.repo._to_ratio_value(
+        current_revenue = RatioRepository._to_ratio_value(rows.get("net_revenue", {}).get(quarter_key))
+        previous_revenue = RatioRepository._to_ratio_value(previous_rows.get("net_revenue", {}).get(quarter_key))
+        current_profit = RatioRepository._to_ratio_value(
             rows.get("profit_after_tax_for_shareholders_of_the_parent_company", {}).get(quarter_key)
         )
-        previous_profit = self.repo._to_ratio_value(
+        previous_profit = RatioRepository._to_ratio_value(
             previous_rows.get("profit_after_tax_for_shareholders_of_the_parent_company", {}).get(quarter_key)
         )
-        liabilities = self.repo._to_ratio_value(rows.get("liabilities", {}).get(quarter_key))
-        owners_equity = self.repo._to_ratio_value(rows.get("owners_equity", {}).get(quarter_key))
+        liabilities = RatioRepository._to_ratio_value(rows.get("liabilities", {}).get(quarter_key))
+        owners_equity = RatioRepository._to_ratio_value(rows.get("owners_equity", {}).get(quarter_key))
         debt_equity = None
         if liabilities is not None and owners_equity not in (None, 0):
             debt_equity = liabilities / owners_equity
@@ -321,20 +319,20 @@ class MarketCrawler:
         return {
             "ticker": ticker,
             "quarter": quarter,
-            "trailing_eps": self.repo._to_ratio_value(rows.get("trailing_eps", {}).get(quarter_key)),
-            "book_value_per_share": self.repo._to_ratio_value(
+            "trailing_eps": RatioRepository._to_ratio_value(rows.get("trailing_eps", {}).get(quarter_key)),
+            "book_value_per_share": RatioRepository._to_ratio_value(
                 rows.get("book_value_per_share_bvps", {}).get(quarter_key)
             ),
-            "pe": self.repo._to_ratio_value(rows.get("p_e", {}).get(quarter_key)),
-            "pb": self.repo._to_ratio_value(rows.get("p_b", {}).get(quarter_key)),
-            "beta": self.repo._to_ratio_value(rows.get("beta", {}).get(quarter_key)),
-            "roe": self.repo._to_ratio_value(rows.get("roe", {}).get(quarter_key)),
-            "roa": self.repo._to_ratio_value(rows.get("roa", {}).get(quarter_key)),
+            "pe": RatioRepository._to_ratio_value(rows.get("p_e", {}).get(quarter_key)),
+            "pb": RatioRepository._to_ratio_value(rows.get("p_b", {}).get(quarter_key)),
+            "beta": RatioRepository._to_ratio_value(rows.get("beta", {}).get(quarter_key)),
+            "roe": RatioRepository._to_ratio_value(rows.get("roe", {}).get(quarter_key)),
+            "roa": RatioRepository._to_ratio_value(rows.get("roa", {}).get(quarter_key)),
             "debt_equity": debt_equity,
             "net_revenue": current_revenue,
             "net_profit": current_profit,
-            "revenue_yoy": self.repo._growth_pct(current_revenue, previous_revenue),
-            "net_profit_yoy": self.repo._growth_pct(current_profit, previous_profit),
+            "revenue_yoy": RatioRepository._growth_pct(current_revenue, previous_revenue),
+            "net_profit_yoy": RatioRepository._growth_pct(current_profit, previous_profit),
             "updated_at": datetime.now(),
         }
 
@@ -386,13 +384,13 @@ class MarketCrawler:
                     rows=rows,
                     previous_rows=rows,
                 )
-                record["revenue_yoy"] = self.repo._growth_pct(
+                record["revenue_yoy"] = RatioRepository._growth_pct(
                     record["net_revenue"],
-                    self.repo._to_ratio_value(rows.get("net_revenue", {}).get(previous_year_key.lower())),
+                    RatioRepository._to_ratio_value(rows.get("net_revenue", {}).get(previous_year_key.lower())),
                 )
-                record["net_profit_yoy"] = self.repo._growth_pct(
+                record["net_profit_yoy"] = RatioRepository._growth_pct(
                     record["net_profit"],
-                    self.repo._to_ratio_value(
+                    RatioRepository._to_ratio_value(
                         rows.get("profit_after_tax_for_shareholders_of_the_parent_company", {}).get(previous_year_key.lower())
                     ),
                 )
@@ -406,20 +404,21 @@ class MarketCrawler:
         if not records:
             return 0
         if replace_existing:
-            return self.repo.replace_financial_ratios(ticker, records)
-        return self.repo.save_financial_ratios(ticker, records)
+            return self.ratio_repo.replace_financial_ratios(ticker, records)
+        return self.ratio_repo.save_financial_ratios(ticker, records)
 
     def _sync_symbol(
         self,
-        ticker: str,
+        symbol: str,
         *,
         replace_existing: bool,
         with_foreign_flow: bool,
         start_date: str | None = None,
         end_date: str | None = None,
     ) -> int:
+        ticker = symbol
         df = self._fetch_from_api(
-            ticker,
+            symbol,
             start_date=start_date,
             end_date=end_date,
             full_history=replace_existing,
@@ -431,9 +430,27 @@ class MarketCrawler:
         )
         if df.empty:
             return 0
+        frame = df.copy()
+        frame["symbol"] = symbol.upper().strip()
         if replace_existing:
-            return self.repo.replace_daily_data(ticker, df)
-        return self.repo.save_daily_data(ticker, df)
+            market_repo.delete_ohlcv_1d(symbol)
+            market_repo.upsert_ohlcv_1d(frame)
+            return len(frame)
+
+        normalized_dates = pd.to_datetime(frame["ts"] if "ts" in frame.columns else frame["date"])
+        trade_dates = (
+            pd.to_datetime(frame["trade_date"], errors="coerce").dt.date
+            if "trade_date" in frame.columns
+            else normalized_dates.dt.date
+        )
+        existing_trade_dates = market_repo.get_existing_trade_dates(
+            symbol,
+            min(trade_dates),
+            max(trade_dates),
+        )
+        market_repo.upsert_ohlcv_1d(frame)
+        incoming_trade_dates = {value for value in trade_dates.tolist() if pd.notna(value)}
+        return len([value for value in incoming_trade_dates if value not in existing_trade_dates])
 
     def _fetch_symbol_overview(self, ticker: str) -> dict[str, Any]:
         try:
@@ -476,7 +493,7 @@ class MarketCrawler:
         metadata = self._fetch_symbol_overview(ticker)
         if metadata:
             metadata.pop("ticker", None)
-            self.repo.upsert_symbol_metadata(ticker, metadata)
+            self.symbol_repo.upsert_symbol_metadata(ticker, metadata)
 
     def _fetch_benchmark_from_api(
         self,
@@ -486,23 +503,18 @@ class MarketCrawler:
         end_date: str | None = None,
         full_history: bool = False,
     ) -> pd.DataFrame:
+        symbol = ticker
         try:
             resolved_end_date = end_date or datetime.now().strftime("%Y-%m-%d")
-            from data.storage.models import MarketDataDaily
 
             if start_date is not None:
                 resolved_start_date = start_date
             elif full_history:
                 resolved_start_date = (datetime.now() - timedelta(days=3652)).strftime("%Y-%m-%d")
             else:
-                last_record = (
-                    self.repo.db.query(MarketDataDaily)
-                    .filter(MarketDataDaily.ticker == ticker)
-                    .order_by(MarketDataDaily.date.desc())
-                    .first()
-                )
-                if last_record and last_record.date:
-                    resolved_start_date = (last_record.date + timedelta(days=1)).strftime("%Y-%m-%d")
+                last_bar_time = market_repo.get_latest_bar_time(symbol, "1d")
+                if last_bar_time is not None:
+                    resolved_start_date = (last_bar_time.date() + timedelta(days=1)).strftime("%Y-%m-%d")
                 else:
                     resolved_start_date = (datetime.now() - timedelta(days=3652)).strftime("%Y-%m-%d")
 
@@ -510,7 +522,7 @@ class MarketCrawler:
                 return pd.DataFrame()
 
             return self._fetch_quote_history(
-                ticker,
+                symbol,
                 start_date=resolved_start_date,
                 end_date=resolved_end_date,
                 with_foreign_flow=False,
@@ -554,10 +566,9 @@ class MarketCrawler:
                 else:
                     print(f"✅ Đã thêm {count} bản ghi.")
             else:
-                from data.storage.models import MarketDataDaily
-                last_record = self.repo.db.query(MarketDataDaily).filter(MarketDataDaily.ticker == ticker).order_by(MarketDataDaily.date.desc()).first()
-                if last_record and last_record.date.strftime('%Y-%m-%d') >= (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d'):
-                    print(f"✅ Dữ liệu đã cập nhật tới lịch sử gần nhất ({last_record.date.strftime('%Y-%m-%d')}).")
+                last_bar_time = market_repo.get_latest_bar_time(ticker, "1d")
+                if last_bar_time and last_bar_time.strftime('%Y-%m-%d') >= (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d'):
+                    print(f"✅ Dữ liệu đã cập nhật tới lịch sử gần nhất ({last_bar_time.strftime('%Y-%m-%d')}).")
                 else:
                     print("❌ Không tải được dữ liệu.")
             results[ticker] = count
@@ -625,7 +636,8 @@ class MarketCrawler:
                 f"Ratios quý: {total_ratio_records} bản ghi."
             )
         finally:
-            self.repo.close()
+            self.ratio_repo.close()
+            self.symbol_repo.close()
 
 if __name__ == "__main__":
     # 1. Khởi tạo Database (Tạo bảng nếu chưa có)

@@ -20,7 +20,8 @@ class ChartToolkit:
         
         try:
             # Định dạng lại index cho mplfinance
-            df = df.set_index('date')
+            index_column = "ts" if "ts" in df.columns else "date"
+            df = df.set_index(index_column)
             
             # Style chuyên nghiệp
             mc = mpf.make_marketcolors(up='green', down='red', edge='inherit', wick='inherit', volume='in')

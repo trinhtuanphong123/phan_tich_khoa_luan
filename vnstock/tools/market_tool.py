@@ -8,7 +8,8 @@ _site_pkg = Path(__file__).resolve().parents[2] / ".venv" / "lib" / f"python{sys
 if _site_pkg.is_dir() and str(_site_pkg) not in sys.path:
     sys.path.insert(0, str(_site_pkg))
 
-from data.storage.repo import DataRepository  # noqa: E402
+from data.storage import market_repo  # noqa: E402
+from data.storage.sentiment_repo import SentimentRepository  # noqa: E402
 from vnstock.jobs.crawler import MarketCrawler  # noqa: E402
 
 # Optional import to trigger vnstock availability early (without hard fail)
@@ -22,14 +23,41 @@ class MarketToolkit:
     _price_cache = {}
 
     @staticmethod
+    def _timestamp_column(df: pd.DataFrame) -> str:
+        if "ts" in df.columns:
+            return "ts"
+        if "date" in df.columns:
+            return "date"
+        raise KeyError("price DataFrame must include ts or date")
+
+    @staticmethod
     def _filter_to_ref_date(df: pd.DataFrame, ref_date: str | None) -> pd.DataFrame:
         if df.empty or ref_date is None:
             return df
         filtered = df.copy()
-        filtered["date"] = pd.to_datetime(filtered["date"])
+        timestamp_column = MarketToolkit._timestamp_column(filtered)
+        filtered[timestamp_column] = pd.to_datetime(filtered[timestamp_column])
         end_exclusive = pd.to_datetime(ref_date).normalize() + pd.Timedelta(days=1)
-        filtered = filtered[filtered["date"] < end_exclusive]
-        return filtered.sort_values("date").reset_index(drop=True)
+        filtered = filtered[filtered[timestamp_column] < end_exclusive]
+        return filtered.sort_values(timestamp_column).reset_index(drop=True)
+
+    @staticmethod
+    def _read_price_history(symbol: str, *, end_date: str | None = None, days: int = 0) -> pd.DataFrame:
+        if end_date is not None:
+            resolved_end_date = pd.to_datetime(end_date).date()
+        else:
+            resolved_end_date = pd.Timestamp.now().date()
+
+        if days > 0:
+            resolved_start_date = resolved_end_date - pd.Timedelta(days=days - 1)
+        else:
+            resolved_start_date = pd.Timestamp("1900-01-01").date()
+
+        return market_repo.get_daily_ohlcv(
+            [symbol],
+            resolved_start_date.isoformat(),
+            resolved_end_date.isoformat(),
+        )
 
     @staticmethod
     def get_price_data(symbol: str, days: int = 730, ref_date: str | None = None) -> pd.DataFrame:
@@ -42,9 +70,8 @@ class MarketToolkit:
                 filtered_df = MarketToolkit._filter_to_ref_date(cached_df, ref_date)
                 return filtered_df.tail(days)
 
-        repo = DataRepository()
         try:
-            df = repo.get_price_history(symbol, end_date=ref_date, days=days + 100)
+            df = MarketToolkit._read_price_history(symbol, end_date=ref_date, days=days + 100)
             df = MarketToolkit._filter_to_ref_date(df, ref_date)
 
             if df.empty:
@@ -65,14 +92,16 @@ class MarketToolkit:
                         end_date=resolved_end,
                     )
                     if not df_new.empty:
-                        repo.save_daily_data(symbol, df_new)
-                        df = repo.get_price_history(symbol, end_date=ref_date, days=days + 100)
+                        frame = df_new.copy()
+                        frame["symbol"] = symbol
+                        market_repo.upsert_ohlcv_1d(frame)
+                        df = MarketToolkit._read_price_history(symbol, end_date=ref_date, days=days + 100)
                         df = MarketToolkit._filter_to_ref_date(df, ref_date)
                 finally:
                     crawler.repo.close()
 
             if not df.empty:
-                full_history = repo.get_price_history(symbol, days=0)
+                full_history = MarketToolkit._read_price_history(symbol, days=0)
                 MarketToolkit._price_cache[symbol] = (pd.Timestamp.now(), full_history)
                 filtered_df = MarketToolkit._filter_to_ref_date(full_history, ref_date)
                 return filtered_df.tail(days)
@@ -81,15 +110,13 @@ class MarketToolkit:
         except Exception as e:
             print(f"❌ Lỗi MarketTool: {e}", file=sys.stderr)
             return pd.DataFrame()
-        finally:
-            repo.close()
 
     @staticmethod
     def get_news_sentiment(
         symbol: str, ref_date: str, days_back: int = 5
     ) -> tuple[float, float, int]:
-        """Lấy sentiment suy giảm theo ngày cho ticker."""
-        repo = DataRepository()
+        """Lấy sentiment suy giảm theo ngày cho symbol."""
+        repo = SentimentRepository()
         try:
             ref_dt = pd.to_datetime(ref_date)
             score, conf, days_used = repo.get_decayed_sentiment(

@@ -1,7 +1,7 @@
 """Market data service.
 
 Three responsibilities:
-1. Read latest close prices from `data/vnstock.db` (read-only via DataRepository).
+1. Read latest close prices from stored market data via the market repository.
 2. Sync today's prices via MarketCrawler — `sync_prices_today()`.
 3. Lightweight CafeF crawl into `app/data/news_cache.db` — `crawl_news_lite()`.
 
@@ -103,26 +103,21 @@ def get_latest_prices(tickers: List[str]) -> Dict[str, float]:
 
     if missing:
         try:
-            from data.storage.repo import DataRepository
+            from data.storage import market_repo
 
-            repo = DataRepository()
-            try:
-                for t in missing:
-                    try:
-                        df = repo.get_price_history(t, days=1)
-                    except Exception:
-                        df = None
-                    if df is None or df.empty:
-                        out[t] = 0.0
-                        continue
-                    last_close = float(df.iloc[-1]["close"]) * 1000.0
-                    out[t] = last_close
-                    cache[t] = {"price": last_close, "ts": now}
-            finally:
+            for t in missing:
                 try:
-                    repo.close()
+                    start_date = (now.date() - timedelta(days=14)).isoformat()
+                    end_date = now.date().isoformat()
+                    df = market_repo.get_daily_ohlcv([t], start_date, end_date)
                 except Exception:
-                    pass
+                    df = None
+                if df is None or df.empty:
+                    out[t] = 0.0
+                    continue
+                last_close = float(df.iloc[-1]["close"]) * 1000.0
+                out[t] = last_close
+                cache[t] = {"price": last_close, "ts": now}
             _save_price_cache(cache)
         except Exception as exc:  # pragma: no cover
             print(f"[market_service] price lookup failed: {exc}")

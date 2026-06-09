@@ -1,0 +1,12 @@
+# Toàn bộ file cấu hình môi trường
+.env
+.env.local
+.env.*.local
+
+# Các file rác hoặc cache của hệ thống/IDE (bổ sung cho an toàn)
+__pycache__/
+*.pyc
+.DS_Store
+.vscode/
+.idea/
+node_modules/

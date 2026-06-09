@@ -1,0 +1,19 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# System deps cho lxml, trafilatura, psycopg2
+RUN apt-get update && apt-get install -y \
+    gcc g++ libxml2-dev libxslt1-dev libpq-dev curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python deps trước để cache layer
+COPY requirements/data.txt requirements/data.txt
+RUN pip install --no-cache-dir -r requirements/data.txt
+
+# Chỉ copy những gì data/ cần — KHÔNG copy ml/, vnstock/, app/, dashboard/
+COPY config.py config.py
+COPY data/ data/
+
+# Không có CMD mặc định
+# Mỗi ECS task override CMD riêng

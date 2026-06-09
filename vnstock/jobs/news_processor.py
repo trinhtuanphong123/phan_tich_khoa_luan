@@ -21,7 +21,7 @@ import pandas as pd
 
 from config import paths
 from data.tracking_news.app import summarizer as tsummarizer
-from data.storage.repo import DataRepository
+from data.storage.sentiment_repo import SentimentRepository
 
 NEWS_DB_PATH = paths.news_db_path
 
@@ -233,7 +233,7 @@ def process_day(
     similarity: float,
     dry_run: bool,
     summarizer: KimiJSONSummarizer,
-    repo: DataRepository,
+    repo: SentimentRepository,
 ) -> None:
     day_str = day.strftime("%Y-%m-%d")
     articles = fetch_articles_for_day(conn, ticker, day_str, limit)
@@ -322,7 +322,7 @@ def main() -> None:
     conn.row_factory = sqlite3.Row
 
     summarizer = KimiJSONSummarizer()
-    repo = DataRepository()
+    repo = SentimentRepository()
 
     try:
         for day in dates:

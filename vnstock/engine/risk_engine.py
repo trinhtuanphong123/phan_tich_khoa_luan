@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Dict, List, Tuple
 
 from config import risk_limits as default_risk_limits
-from data.storage.repo import DataRepository
+from data.storage.symbol_repo import SymbolRepository
 from vnstock.tools.backtest.portfolio import Portfolio
 
 # Re-export RiskLimits from config for backward compatibility
@@ -80,12 +80,12 @@ class RiskEngine:
         ticker: str,
         sector: str,
         target_weight_pct: float,
-        repo: DataRepository | None = None,
+        repo: SymbolRepository | None = None,
     ) -> Tuple[bool, str]:
         """Check if adding this position would violate sector exposure limits.
 
         Args:
-            repo: Optional DataRepository instance. If None, creates and closes one internally.
+            repo: Optional SymbolRepository instance. If None, creates and closes one internally.
                   Pass existing repo to avoid resource leak when calling repeatedly.
         """
         if not sector or sector.lower() in ("other", "unknown", ""):
@@ -99,7 +99,7 @@ class RiskEngine:
         sector_notional = 0.0
         should_close_repo = repo is None
         if repo is None:
-            repo = DataRepository()
+            repo = SymbolRepository()
         try:
             for pos_ticker, pos in portfolio.positions.items():
                 if pos_ticker == ticker:

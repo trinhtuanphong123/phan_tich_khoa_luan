@@ -1,41 +1,40 @@
+# Git
 .git
-.github
+.gitignore
+
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
-.env
-.env.*
-!.env.example
-
-.venv/
-venv/
-env/
-
-node_modules/
-.next/
-dist/
-build/
-
-data/*.db
-data/**/*.db
-artifacts/
-outputs/
-logs/
-
-*.parquet
-*.npy
-*.npz
-*.csv
-*.xlsx
-
-docs/repo_analysis/
-docs/assets/
-
-dashboard/node_modules/
-dashboard/.next/
-
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Env files (KHÔNG bao giờ đưa vào image)
+.env
+.env.*
+*.env
+
+# Runtime artifacts
+data/feature_artifacts/
+data/object_store/
+*.db
+*.jsonl
+*.log
+
+# Frontend (không cần trong Python images)
+node_modules/
+dashboard/.next/
+dashboard/node_modules/
+
+# Docs
+docs/
+*.md
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,27 @@
+# ── Core data processing ────────────────────────────────
+pandas>=2.2
+numpy>=1.26
+python-dotenv>=1.0
+
+# ── Database ────────────────────────────────────────────
+sqlalchemy>=2.0
+psycopg2-binary>=2.9        # PostgreSQL driver cho Supabase
+
+# ── Technical indicators ────────────────────────────────
+pandas-ta>=0.3.14b          # RSI, MACD, Bollinger, ATR, EMA...
+
+# ── HTTP / crawling (cho news pipeline) ─────────────────
+httpx>=0.27
+tenacity>=8.2
+
+# ── HTML parsing (cho news pipeline) ────────────────────
+beautifulsoup4>=4.12
+lxml>=5.1
+trafilatura>=1.12
+
+# ── Date parsing (cho news) ─────────────────────────────
+dateparser>=1.2
+python-dateutil>=2.9
+
+# ── Hashing (cho news dedup) ────────────────────────────
+# hashlib, hmac: stdlib, không cần cài
