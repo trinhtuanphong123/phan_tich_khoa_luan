@@ -317,7 +317,7 @@ class MarketCrawler:
             debt_equity = liabilities / owners_equity
 
         return {
-            "ticker": ticker,
+            "symbol": ticker,
             "quarter": quarter,
             "trailing_eps": RatioRepository._to_ratio_value(rows.get("trailing_eps", {}).get(quarter_key)),
             "book_value_per_share": RatioRepository._to_ratio_value(

@@ -20,8 +20,9 @@ from typing import List, Tuple
 import pandas as pd
 
 from config import paths
-from data.tracking_news.app import summarizer as tsummarizer
+from data.news import summarizer as tsummarizer
 from data.storage.sentiment_repo import SentimentRepository
+from vnstock.rag_engine.llm import openai_complete_if_cache
 
 NEWS_DB_PATH = paths.news_db_path
 
@@ -56,38 +57,18 @@ class KimiJSONSummarizer:
     async def _summarize(
         self, cluster_title: str, snippets: list[str], ticker: str
     ) -> str:
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "Output ONLY valid JSON with keys score (float -1..1), confidence (0..1), "
-                    "key_event (string). No markdown, no bullet, no explanation."
-                ),
-            },
-            {
-                "role": "user",
-                "content": (
-                    f"Ticker: {ticker}. Cluster representative: {cluster_title}.\n"
-                    "Provide sentiment JSON for these titles/snippets:\n"
-                    + "\n".join(snippets)
-                ),
-            },
-        ]
-
-        api_key = tsummarizer.os.getenv("CLIPROXY_API_KEY")
-        headers = {"Content-Type": "application/json"}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-
-        session = await tsummarizer._get_session()  # type: ignore[attr-defined]
-        async with session.post(
-            tsummarizer.PROXY_URL,
-            headers=headers,
-            json={"model": tsummarizer.MODEL_NAME, "messages": messages},
-        ) as resp:
-            resp.raise_for_status()
-            data = await resp.json()
-            return data["choices"][0]["message"]["content"].strip()
+        return await openai_complete_if_cache(
+            prompt=(
+                f"Ticker: {ticker}. Cluster representative: {cluster_title}.\n"
+                "Provide sentiment JSON for these titles/snippets:\n"
+                + "\n".join(snippets)
+            ),
+            system_prompt=(
+                "Output ONLY valid JSON with keys score (float -1..1), confidence (0..1), "
+                "key_event (string). No markdown, no bullet, no explanation."
+            ),
+            model=tsummarizer.MODEL_NAME,
+        )
 
     def summarize(self, cluster_title: str, snippets: list[str], ticker: str) -> str:
         return self.loop.run_until_complete(

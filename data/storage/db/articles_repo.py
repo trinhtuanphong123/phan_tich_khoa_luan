@@ -2,7 +2,7 @@ import json
 import sqlite3
 from dataclasses import dataclass
 
-from data.tracking_news.app.dedup.service import find_duplicate
+from data.news.dedup.service import find_duplicate
 
 
 @dataclass(frozen=True, slots=True)

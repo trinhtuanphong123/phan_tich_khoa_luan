@@ -2,7 +2,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from data.tracking_news.app.dedup.hashers import hamming_distance
+from data.news.dedup.hashers import hamming_distance
 
 
 @dataclass(frozen=True, slots=True)

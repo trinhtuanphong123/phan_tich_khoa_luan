@@ -1,7 +1,7 @@
 import os
 import sqlite3
 
-from data.tracking_news.app.config import NEWS_DB_PATH
+NEWS_DB_PATH = os.getenv("NEWS_DB_PATH", "data/news.db")
 
 DDL = """
 PRAGMA journal_mode=WAL;

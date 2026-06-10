@@ -98,7 +98,8 @@ class MarketToolkit:
                         df = MarketToolkit._read_price_history(symbol, end_date=ref_date, days=days + 100)
                         df = MarketToolkit._filter_to_ref_date(df, ref_date)
                 finally:
-                    crawler.repo.close()
+                    crawler.ratio_repo.close()
+                    crawler.symbol_repo.close()
 
             if not df.empty:
                 full_history = MarketToolkit._read_price_history(symbol, days=0)

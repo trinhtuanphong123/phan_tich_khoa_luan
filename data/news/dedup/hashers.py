@@ -2,7 +2,7 @@ import hashlib
 import re
 from collections import Counter
 
-from data.tracking_news.app.extract.normalize import normalize_for_matching
+from data.news.extract.normalize import normalize_for_matching
 
 _TOKEN_RE = re.compile(r"[A-Z0-9]{2,}")
 _UINT64_MASK = (1 << 64) - 1

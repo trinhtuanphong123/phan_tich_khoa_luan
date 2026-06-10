@@ -171,9 +171,10 @@ def get_priority_symbols() -> list[str]:
         return configured
 
     universe_name = os.getenv("MARKET_PRIORITY_UNIVERSE", "vn80")
+    max_priority = int(os.getenv("MARKET_PRIORITY_MAX", "3"))
     items = load_universe(universe_name)
     return [
         item["symbol"]
         for item in sorted(items, key=lambda item: (int(item["priority"]), str(item["symbol"])))
-        if bool(item["is_active"]) and int(item["priority"]) == 1
+        if bool(item["is_active"]) and int(item["priority"]) <= max_priority
     ]

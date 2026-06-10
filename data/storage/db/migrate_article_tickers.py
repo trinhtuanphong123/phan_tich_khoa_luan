@@ -1,7 +1,7 @@
 import logging
 import sqlite3
 
-from data.tracking_news.app.db.conn import connect
+from data.storage.db.conn import connect
 
 logger = logging.getLogger(__name__)
 

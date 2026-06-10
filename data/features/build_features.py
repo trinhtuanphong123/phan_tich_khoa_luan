@@ -16,7 +16,14 @@ from data.storage.indicator_repo import save_stock_indicators
 from data.storage.models import FeatureRun, SessionLocal
 
 
-def _create_feature_run(run_id: str, lookback_days: int, symbol_count: int) -> None:
+def _create_feature_run(
+    run_id: str,
+    *,
+    lookback_days: int,
+    start_date: date,
+    end_date: date,
+    symbols: list[str],
+) -> None:
     session = SessionLocal()
     try:
         session.add(
@@ -26,7 +33,10 @@ def _create_feature_run(run_id: str, lookback_days: int, symbol_count: int) -> N
                 status="running",
                 metadata_json={
                     "lookback_days": lookback_days,
-                    "symbol_count": symbol_count,
+                    "start_date": start_date.isoformat(),
+                    "end_date": end_date.isoformat(),
+                    "symbols": symbols,
+                    "symbol_count": len(symbols),
                 },
             )
         )
@@ -81,7 +91,13 @@ def main() -> None:
     start_date = end_date - timedelta(days=lookback_days - 1)
     run_id = f"feature-run-{end_date.isoformat()}-{uuid4().hex[:8]}"
 
-    _create_feature_run(run_id, lookback_days, len(symbols))
+    _create_feature_run(
+        run_id,
+        lookback_days=lookback_days,
+        start_date=start_date,
+        end_date=end_date,
+        symbols=symbols,
+    )
     try:
         feature_matrix = build_market_feature_matrix(symbols, end_date, lookback_days)
         artifact = save_market_features(run_id, feature_matrix)

@@ -2,7 +2,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from data.tracking_news.app.sources import SectionDiscoveryStats
+from data.news.sources import SectionDiscoveryStats
 
 
 @dataclass(slots=True)

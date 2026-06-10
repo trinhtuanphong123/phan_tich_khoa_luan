@@ -1,6 +1,7 @@
 import sqlite3
+import os
 
-from data.tracking_news.app.config import NEWS_DB_PATH
+NEWS_DB_PATH = os.getenv("NEWS_DB_PATH", "data/news.db")
 
 
 def connect(db_path: str = NEWS_DB_PATH) -> sqlite3.Connection:
